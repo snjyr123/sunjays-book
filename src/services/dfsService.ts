@@ -1,7 +1,7 @@
 import { DfsData } from '@/types/dfs';
 
 // Replace this with your actual hosted API URL (e.g., https://your-app.vercel.app)
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sunjays-book.vercel.app';
 
 export const fetchDfsData = async (): Promise<DfsData> => {
   try {
