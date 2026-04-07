@@ -6,7 +6,7 @@ import { getDfsData } from '@/services/dfsService';
 import ParlayBuilder from './ParlayBuilder';
 import PlayerStatsModal from './PlayerStatsModal';
 
-const PLATFORMS: Platform[] = ['Prizepicks', 'Underdog'];
+const PLATFORMS: Platform[] = ['Prizepicks'];
 
 type MarketType = 'Players' | 'Teams';
 type TabType = 'All' | 'NBA' | 'MLB' | 'NFL' | 'Soccer' | 'Tennis' | 'Golf' | 'NCAAB' | 'Value' | string;
