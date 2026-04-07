@@ -69,7 +69,8 @@ const ConfidenceCircle = memo(({ score }: { score: number }) => {
 ConfidenceCircle.displayName = 'ConfidenceCircle';
 
 const PlayerRow = memo(({ player, onClick }: { player: any, onClick: () => void }) => {
-  const isFantasy = player?.lines?.[0]?.type?.toLowerCase().includes('fantasy') || false;
+  const lineType = player?.lines?.[0]?.type || 'Stat';
+  const isFantasy = lineType.toLowerCase().includes('fantasy') || lineType.toLowerCase().includes('score');
   const diff = player?.diff || 0;
   
   if (!player) return null;
@@ -84,7 +85,7 @@ const PlayerRow = memo(({ player, onClick }: { player: any, onClick: () => void 
           <div className="flex flex-col">
             <span className="font-black text-gray-900 leading-tight text-lg group-hover:text-indigo-600 transition-colors">{player.name || 'Unknown Player'}</span>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg uppercase border border-indigo-100">{player.lines?.[0]?.type || 'Stat'}</span>
+              <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg uppercase border border-indigo-100">{lineType}</span>
               <span className="text-[10px] text-gray-400 font-bold uppercase">{player.team || 'TBD'} vs {player.opponent || 'TBD'} • {player.sport || 'Other'}</span>
             </div>
           </div>
@@ -160,9 +161,13 @@ export default function DfsDashboard() {
   }, [projections]);
 
   const allFiltered = useMemo(() => {
-    if (!Array.isArray(projections)) return [];
+    if (!Array.isArray(projections)) {
+      console.log('Projections is not an array:', projections);
+      return [];
+    }
     
-    return projections
+    console.log('Total projections before filter:', projections.length);
+    const filtered = projections
       .filter(p => {
         if (!p || !p.name) return false;
         const name = (p.name || '').toLowerCase();
@@ -173,8 +178,11 @@ export default function DfsDashboard() {
         if (activeTab === 'Value') return matchesSearch && (p.aiScore || 0) > 75;
         if (activeTab === 'All') return matchesSearch;
         return matchesSearch && p.sport === activeTab;
-      })
-      .sort((a, b) => {
+      });
+    
+    console.log('Filtered count:', filtered.length, 'activeTab:', activeTab);
+
+    return filtered.sort((a, b) => {
         if (!a || !b) return 0;
         if (sortBy === 'aiScore') return (b.aiScore || 0) - (a.aiScore || 0);
         if (sortBy === 'diff') return Math.abs(b.diff || 0) - Math.abs(a.diff || 0);
