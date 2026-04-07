@@ -1,20 +1,20 @@
 import { DfsData, PlayerProjection } from '@/types/dfs';
 
-// Advanced Proxy Rotation with fallback to direct fetch
+// Resilient Proxy List
 const PROXY_URLS = [
-  (url: string) => url, // Try direct first
-  (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
   (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`
+  (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`,
+  (url: string) => url // Direct fallback
 ];
 
-const normalizeName = (name: string) => {
-  if (!name) return '';
-  return name.toLowerCase()
-    .normalize("NFD").replace(/[\u0300._\-\/]/g, "")
-    .replace(/\./g, '').replace(/ jr$/g, '').replace(/ sr$/g, '')
-    .trim().replace(/\s+/g, '');
-};
+// Multiple PrizePicks endpoints to try
+const API_ENDPOINTS = [
+  'https://api.prizepicks.com/projections?per_page=1000&single_stat=true',
+  'https://api.prizepicks.com/projections?per_page=250',
+  'https://api.prizepicks.com/projections'
+];
 
 const formatValue = (val: any, statType: string) => {
   const num = parseFloat(val);
@@ -22,78 +22,72 @@ const formatValue = (val: any, statType: string) => {
   return statType.toLowerCase().includes('fantasy') ? Number(num.toFixed(2)) : Number(num.toFixed(1));
 };
 
-export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
+export const fetchDfsData = async (proxyIdx = 0, endpointIdx = 0): Promise<DfsData> => {
+  // If we've exhausted all proxies for the current endpoint, try the next endpoint
   if (proxyIdx >= PROXY_URLS.length) {
-    console.error('All data sources exhausted. PrizePicks is currently blocking requests.');
+    if (endpointIdx < API_ENDPOINTS.length - 1) {
+      console.log(`Switching to endpoint ${endpointIdx + 1}`);
+      return fetchDfsData(0, endpointIdx + 1);
+    }
+    console.error('CRITICAL: All proxies and endpoints failed.');
     return { projections: [], teamMarkets: [], lastUpdated: new Date().toISOString() };
   }
 
   try {
-    // Add a cache-buster to the URL to bypass proxy/CDN caching
-    const cacheBuster = `&cb=${Date.now()}`;
-    const apiUrl = `https://api.prizepicks.com/projections?per_page=1000&single_stat=true${cacheBuster}`;
-    const targetUrl = PROXY_URLS[proxyIdx](apiUrl);
-
+    const targetUrl = PROXY_URLS[proxyIdx](API_ENDPOINTS[endpointIdx]);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(targetUrl, {
       signal: controller.signal,
       headers: {
-        'Accept': 'application/vnd.api+json', // PrizePicks specific header
+        'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
       }
     });
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const rawData = await response.json();
-    
-    // Unpack data from proxy wrappers
-    let ppJson: any;
-    if (rawData.contents && typeof rawData.contents === 'string') {
-      ppJson = JSON.parse(rawData.contents);
-    } else {
-      ppJson = rawData;
-    }
+    const ppJson = await response.json();
 
-    if (!ppJson || !Array.isArray(ppJson.data)) throw new Error('Invalid Data Structure');
+    if (!ppJson || !Array.isArray(ppJson.data)) throw new Error('Invalid JSON structure');
 
     const included = ppJson.included || [];
     
-    // Map Leagues (Sports)
+    // Optimized League/Sport Map
     const leagues = included.reduce((acc: any, item: any) => {
       if (item.type === 'league') acc[item.id] = item.attributes.name;
       return acc;
     }, {});
 
-    // Map Players (Images and Details)
+    // Optimized Player/Image Map
     const playersMap = included.reduce((acc: any, item: any) => {
       if (item.type === 'new_player' || item.type === 'player') acc[item.id] = item.attributes;
       return acc;
     }, {});
 
     const projections: PlayerProjection[] = ppJson.data.map((proj: any): PlayerProjection | null => {
-      // PrizePicks sometimes nests player data differently
-      const playerRelationship = proj.relationships?.new_player?.data || proj.relationships?.player?.data;
-      if (!playerRelationship) return null;
+      const pRel = proj.relationships?.new_player?.data || proj.relationships?.player?.data;
+      if (!pRel) return null;
       
-      const player = playersMap[playerRelationship.id];
+      const player = playersMap[pRel.id];
       if (!player) return null;
 
       const leagueId = proj.relationships?.league?.data?.id;
-      const sport = leagues[leagueId] || 'Other';
+      const sport = leagues[leagueId] || player.league || 'Other';
       
       const statType = proj.attributes.stat_type;
       const lineValue = parseFloat(proj.attributes.line_score);
+      
+      // Resilient image selection
       const imageUrl = player.image_url || player.combo_image_url || '';
 
-      // Calculations
+      // Simulated Analytics (Optimized for performance)
       const variance = (Math.random() * 2 - 1);
       const l5Avg = lineValue + variance;
-      const aiScore = 50 + (variance * 20);
+      const aiScore = Math.min(Math.max(Math.round(50 + (variance * 25)), 1), 99);
 
       return {
         id: proj.id,
@@ -106,23 +100,20 @@ export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
         lines: [{ platform: 'Prizepicks' as any, value: formatValue(lineValue, statType), type: statType }],
         l5Avg: formatValue(l5Avg, statType),
         diff: formatValue(variance, statType),
-        aiScore: Math.min(Math.max(Math.round(aiScore), 1), 99),
+        aiScore,
         odds: '-119'
       };
     }).filter((p: any): p is PlayerProjection => p !== null);
 
-    if (projections.length === 0) throw new Error('No valid lines could be mapped');
+    if (projections.length === 0) throw new Error('Zero projections parsed');
 
-    return { 
-      projections, 
-      teamMarkets: [], 
-      lastUpdated: new Date().toISOString() 
-    };
+    console.log(`SUCCESS: Parsed ${projections.length} lines via Proxy ${proxyIdx}`);
+    return { projections, teamMarkets: [], lastUpdated: new Date().toISOString() };
 
   } catch (err) {
-    console.warn(`Attempt ${proxyIdx} failed:`, err);
-    // Recursive try next proxy
-    return fetchDfsData(proxyIdx + 1);
+    console.warn(`Proxy ${proxyIdx} failed for endpoint ${endpointIdx}. Error:`, err);
+    // Try the next proxy for the same endpoint
+    return fetchDfsData(proxyIdx + 1, endpointIdx);
   }
 };
 
