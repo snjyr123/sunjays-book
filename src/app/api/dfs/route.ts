@@ -39,8 +39,11 @@ const formatValue = (val: number, statType: string) => {
 
 async function fetchNbaBatchL5() {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     const url = `https://stats.nba.com/stats/leaguedashplayerstats?Season=${ACTIVE_NBA_SEASON}&SeasonType=Regular+Season&LastNGames=5&MeasureType=Base&PerMode=PerGame&LeagueID=00`;
-    const res = await fetch(url, { headers: NBA_HEADERS, next: { revalidate: 3600 } });
+    const res = await fetch(url, { headers: NBA_HEADERS, next: { revalidate: 3600 }, signal: controller.signal } as any);
+    clearTimeout(timeoutId);
     if (!res.ok) return new Map();
     const json = await res.json();
     const rows = json.resultSets?.[0]?.rowSet || [];
@@ -74,11 +77,15 @@ const normalizeStatName = (stat: string) => {
 
 async function fetchUnderdog() {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     const url = 'https://api.underdogfantasy.com/beta/v3/over_under_lines';
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENTS[0], 'Referer': 'https://underdogfantasy.com/' },
-      next: { revalidate: 60 }
-    });
+      next: { revalidate: 60 },
+      signal: controller.signal
+    } as any);
+    clearTimeout(timeoutId);
     if (!res.ok) return new Map();
     const json = await res.json();
     const playersMap = new Map();
@@ -98,14 +105,20 @@ async function fetchUnderdog() {
 
 export async function GET() {
   try {
+    const ppController = new AbortController();
+    const ppTimeout = setTimeout(() => ppController.abort(), 10000);
+
     const [ppRes, udMap, nbaStatsMap] = await Promise.all([
       fetch('https://api.prizepicks.com/projections?per_page=1000&single_stat=true', {
         headers: { 'User-Agent': USER_AGENTS[0] },
-        next: { revalidate: 60 }
-      }),
+        next: { revalidate: 60 },
+        signal: ppController.signal
+      } as any),
       fetchUnderdog(),
       fetchNbaBatchL5()
     ]);
+
+    clearTimeout(ppTimeout);
 
     if (!ppRes.ok) throw new Error('PrizePicks request failed');
     const ppJson = await ppRes.json();
