@@ -132,11 +132,16 @@ export default function DfsDashboard() {
     }
     try {
       const data = await getDfsData();
-      setProjections(data.projections || []);
+      if (!data || !Array.isArray(data.projections)) {
+        throw new Error('Invalid data format');
+      }
+      setProjections(data.projections);
       setTeamMarkets(data.teamMarkets || []);
-      setLastUpdated(data.lastUpdated);
+      setLastUpdated(data.lastUpdated || new Date().toISOString());
     } catch (error) {
       console.error('Failed to fetch DFS data:', error);
+      // Data service should handle fallbacks, but we add an extra layer here
+      setProjections([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
