@@ -105,26 +105,30 @@ async function fetchUnderdog() {
 
 export async function GET() {
   try {
-    const ppController = new AbortController();
-    const ppTimeout = setTimeout(() => ppController.abort(), 10000);
-
-    const [ppRes, udMap, nbaStatsMap] = await Promise.all([
-      fetch('https://api.prizepicks.com/projections?per_page=1000&single_stat=true', {
+    // 1. Fetch PrizePicks (Primary)
+    let ppData: any = { data: [], included: [] };
+    try {
+      const ppController = new AbortController();
+      const ppTimeout = setTimeout(() => ppController.abort(), 12000);
+      const ppRes = await fetch('https://api.prizepicks.com/projections?per_page=1000&single_stat=true', {
         headers: { 'User-Agent': USER_AGENTS[0] },
         next: { revalidate: 60 },
         signal: ppController.signal
-      } as any),
+      } as any);
+      clearTimeout(ppTimeout);
+      if (ppRes.ok) ppData = await ppRes.json();
+    } catch (e) {
+      console.error('PrizePicks internal fetch failed:', e);
+    }
+
+    // 2. Fetch others in parallel
+    const [udMap, nbaStatsMap] = await Promise.all([
       fetchUnderdog(),
       fetchNbaBatchL5()
     ]);
 
-    clearTimeout(ppTimeout);
-
-    if (!ppRes.ok) throw new Error('PrizePicks request failed');
-    const ppJson = await ppRes.json();
-
-    const data = ppJson.data || [];
-    const included = ppJson.included || [];
+    const data = ppData.data || [];
+    const included = ppData.included || [];
     const leagues = included.filter((inc: any) => inc.type === 'league').reduce((acc: Record<string, string>, curr: any) => { acc[curr.id] = curr.attributes.name; return acc; }, {});
     const players = included.filter((inc: any) => inc.type === 'new_player').reduce((acc: Record<string, any>, curr: any) => { acc[curr.id] = curr.attributes; return acc; }, {});
 
