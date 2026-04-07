@@ -6,7 +6,7 @@ async function fetchEspnMoneylines(sport: string, league: string, params: string
     const res = await fetch(url, { next: { revalidate: 300 } });
     const data = await res.json();
     
-    return (data.events || []).map((event: any) => {
+    return (data.events || []).map((event: { id: string, date: string, competitions: any[] }) => {
       const competition = event.competitions[0];
       const odds = competition.odds?.[0] || {};
       
@@ -23,7 +23,7 @@ async function fetchEspnMoneylines(sport: string, league: string, params: string
         startTime: event.date
       };
     });
-  } catch (e) {
+  } catch (_e) {
     return [];
   }
 }
@@ -44,7 +44,7 @@ export async function GET() {
     return NextResponse.json({
       teamMarkets: allMarkets
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ teamMarkets: [] });
   }
 }

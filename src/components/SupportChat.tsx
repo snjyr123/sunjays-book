@@ -38,7 +38,7 @@ export default function SupportChat() {
       });
       const data = await res.json();
       setMessages(prev => [...prev, { text: data.reply || "I'm having trouble thinking right now. Try again!", sender: 'bot' }]);
-    } catch (e) {
+    } catch (_e) {
       setMessages(prev => [...prev, { text: "Connection error. Try again!", sender: 'bot' }]);
     } finally {
       setIsTyping(false);

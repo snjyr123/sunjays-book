@@ -40,13 +40,13 @@ const formatValue = (val: number, statType: string) => {
 async function fetchNbaBatchL5() {
   try {
     const url = `https://stats.nba.com/stats/leaguedashplayerstats?Season=${ACTIVE_NBA_SEASON}&SeasonType=Regular+Season&LastNGames=5&MeasureType=Base&PerMode=PerGame&LeagueID=00`;
-    const res = await fetch(url, { headers: NBA_HEADERS, next: { revalidate: 3600 } } as any);
+    const res = await fetch(url, { headers: NBA_HEADERS, next: { revalidate: 3600 } });
     if (!res.ok) return new Map();
     const json = await res.json();
     const rows = json.resultSets?.[0]?.rowSet || [];
     const h = json.resultSets?.[0]?.headers || [];
     const avgMap = new Map();
-    rows.forEach((row: any) => {
+    rows.forEach((row: any[]) => {
       const name = normalizeName(`${row[h.indexOf('PLAYER_NAME')]}`);
       avgMap.set(name, {
         points: row[h.indexOf('PTS')],
@@ -56,7 +56,7 @@ async function fetchNbaBatchL5() {
       });
     });
     return avgMap;
-  } catch (e) { return new Map(); }
+  } catch (_e) { return new Map(); }
 }
 
 const normalizeStatName = (stat: string) => {
@@ -78,11 +78,11 @@ async function fetchUnderdog() {
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENTS[0], 'Referer': 'https://underdogfantasy.com/' },
       next: { revalidate: 60 }
-    } as any);
+    });
     if (!res.ok) return new Map();
     const json = await res.json();
     const playersMap = new Map();
-    (json.players || []).forEach((p: any) => playersMap.set(p.id, p));
+    (json.players || []).forEach((p: { id: string }) => playersMap.set(p.id, p));
     const udMap = new Map();
     (json.over_under_lines || []).forEach((proj: any) => {
       const player = playersMap.get(proj.over_under?.player_id);
@@ -93,7 +93,7 @@ async function fetchUnderdog() {
       }
     });
     return udMap;
-  } catch (e) { return new Map(); }
+  } catch (_e) { return new Map(); }
 }
 
 export async function GET() {
@@ -102,7 +102,7 @@ export async function GET() {
       fetch('https://api.prizepicks.com/projections?per_page=1000&single_stat=true', {
         headers: { 'User-Agent': USER_AGENTS[0] },
         next: { revalidate: 60 }
-      } as any),
+      }),
       fetchUnderdog(),
       fetchNbaBatchL5()
     ]);
@@ -112,8 +112,8 @@ export async function GET() {
 
     const data = ppJson.data || [];
     const included = ppJson.included || [];
-    const leagues = included.filter((inc: any) => inc.type === 'league').reduce((acc: any, curr: any) => { acc[curr.id] = curr.attributes.name; return acc; }, {});
-    const players = included.filter((inc: any) => inc.type === 'new_player').reduce((acc: any, curr: any) => { acc[curr.id] = curr.attributes; return acc; }, {});
+    const leagues = included.filter((inc: any) => inc.type === 'league').reduce((acc: Record<string, string>, curr: any) => { acc[curr.id] = curr.attributes.name; return acc; }, {});
+    const players = included.filter((inc: any) => inc.type === 'new_player').reduce((acc: Record<string, any>, curr: any) => { acc[curr.id] = curr.attributes; return acc; }, {});
 
     const projections = data.map((proj: any) => {
       const playerRel = proj.relationships?.new_player?.data;

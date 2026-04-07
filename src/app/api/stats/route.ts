@@ -53,7 +53,7 @@ const NBA_ID_MAP: { [key: string]: string } = {
   'jamalmurray': '1627750',
 };
 
-let sleeperPlayersCache: { [key: string]: any } = {
+const sleeperPlayersCache: { [key: string]: Record<string, any> | null } = {
   nfl: null,
   nba: null
 };
@@ -81,13 +81,14 @@ async function getSleeperPlayerId(name: string, sport: string) {
       const res = await fetch(`https://api.sleeper.app/v1/players/${s}`);
       const data = await res.json();
       sleeperPlayersCache[s] = data;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   }
 
   const normalizedTarget = normalizeName(name);
   const players = sleeperPlayersCache[s];
+  if (!players) return null;
   
   for (const id in players) {
     const p = players[id];
@@ -124,7 +125,7 @@ async function getNbaGamelog(name: string) {
     const headers = data.resultSets[0].headers;
     const findIdx = (h: string) => headers.indexOf(h);
     
-    return rows.slice(0, 5).map((row: any) => ({
+    return rows.slice(0, 5).map((row: any[]) => ({
       date: row[findIdx('GAME_DATE')],
       opponent: row[findIdx('MATCHUP')].split(' ').pop(),
       pts_nba: row[findIdx('PTS')],
@@ -135,7 +136,7 @@ async function getNbaGamelog(name: string) {
       tov: row[findIdx('TOV')],
       pra: row[findIdx('PTS')] + row[findIdx('REB')] + row[findIdx('AST')]
     }));
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
@@ -196,7 +197,7 @@ async function getSleeperStats(name: string, sport: string) {
       }
     }
     return gamelog;
-  } catch (e) { return null; }
+  } catch (_e) { return null; }
 }
 
 async function getMlbStats(name: string) {
@@ -213,7 +214,7 @@ async function getMlbStats(name: string) {
     const statsData = await statsRes.json();
     const games = statsData.stats?.[0]?.splits || [];
 
-    return games.slice(0, 5).map((g: any) => ({
+    return games.slice(0, 5).map((g: { date: string, opponent: { name: string }, stat: Record<string, number> }) => ({
       date: new Date(g.date).toLocaleDateString([], { month: 'numeric', day: 'numeric' }),
       opponent: g.opponent?.name || 'TBD',
       pts: g.stat.totalBases || 0,
@@ -223,7 +224,7 @@ async function getMlbStats(name: string) {
       runs: g.stat.runs || 0,
       rbi: g.stat.rbi || 0
     }));
-  } catch (e) { return null; }
+  } catch (_e) { return null; }
 }
 
 export async function GET(request: Request) {
