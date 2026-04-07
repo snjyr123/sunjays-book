@@ -6,7 +6,7 @@ import { getDfsData } from '@/services/dfsService';
 import ParlayBuilder from './ParlayBuilder';
 import PlayerStatsModal from './PlayerStatsModal';
 
-const PLATFORMS: Platform[] = ['Prizepicks'];
+const PLATFORMS: Platform[] = ['Prizepicks', 'Underdog'];
 
 type MarketType = 'Players' | 'Teams';
 type TabType = 'All' | 'NBA' | 'MLB' | 'NFL' | 'Soccer' | 'Tennis' | 'Golf' | 'NCAAB' | 'Value' | string;
@@ -69,7 +69,13 @@ const ConfidenceCircle = memo(({ score }: { score: number }) => {
 ConfidenceCircle.displayName = 'ConfidenceCircle';
 
 const PlayerRow = memo(({ player, onClick }: { player: any, onClick: () => void }) => {
-  const isFantasy = player?.lines?.[0]?.type?.toLowerCase().includes('fantasy') || false;
+  const statType = (player?.lines?.[0]?.type || '').toLowerCase();
+  const isFantasy = statType.includes('fantasy') || statType.includes('score');
+  const isPeriodStat = statType.includes('1q') || statType.includes('1h') || statType.includes('2h') || 
+                       statType.includes('1st') || statType.includes('2nd') || statType.includes('3rd') || 
+                       statType.includes('4th') || statType.includes('quarter') || statType.includes('half') ||
+                       statType.includes('inning');
+  
   const diff = player?.diff || 0;
   
   if (!player) return null;
@@ -90,9 +96,16 @@ const PlayerRow = memo(({ player, onClick }: { player: any, onClick: () => void 
           </div>
         </div>
       </td>
-      <td className="px-4 py-6 text-center"><span className="font-mono font-black text-sm text-gray-900 bg-gray-100 px-3 py-1.5 rounded-xl">{player.odds || '-110'}</span></td>
-      <td className="px-4 py-6 text-center"><span className="text-base font-black text-gray-900">{player.l5Avg !== null && player.l5Avg !== undefined ? player.l5Avg.toFixed(isFantasy ? 2 : 1) : '-'}</span></td>
-      <td className="px-4 py-6 text-center"><span className={`text-base font-black ${diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-600' : 'text-gray-400'}`}>{diff > 0 ? `+${diff.toFixed(isFantasy ? 2 : 1)}` : diff.toFixed(isFantasy ? 2 : 1)}</span></td>
+      <td className="px-4 py-6 text-center">
+        <span className="text-base font-black text-gray-900">
+          {isPeriodStat ? 'N/A' : (player.l5Avg !== null && player.l5Avg !== undefined ? player.l5Avg.toFixed(isFantasy ? 2 : 1) : '-')}
+        </span>
+      </td>
+      <td className="px-4 py-6 text-center">
+        <span className={`text-base font-black ${isPeriodStat ? 'text-gray-400' : (diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-600' : 'text-gray-400')}`}>
+          {isPeriodStat ? 'N/A' : (diff > 0 ? `+${diff.toFixed(isFantasy ? 2 : 1)}` : diff.toFixed(isFantasy ? 2 : 1))}
+        </span>
+      </td>
       <td className="px-4 py-6 text-center"><ConfidenceCircle score={player.aiScore || 50} /></td>
       {PLATFORMS.map(platform => {
         const line = player.lines?.find((l: any) => l.platform === platform);
@@ -132,16 +145,11 @@ export default function DfsDashboard() {
     }
     try {
       const data = await getDfsData();
-      if (!data || !Array.isArray(data.projections) || data.projections.length === 0) {
-        throw new Error('No projections returned from service');
-      }
-      setProjections(data.projections);
+      setProjections(data.projections || []);
       setTeamMarkets(data.teamMarkets || []);
-      setLastUpdated(data.lastUpdated || new Date().toISOString());
+      setLastUpdated(data.lastUpdated);
     } catch (error) {
-      console.error('Failed to fetch DFS data, dashboard using emergency fallback:', error);
-      // Extra UI level safety
-      setProjections([]);
+      console.error('Failed to fetch DFS data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -230,7 +238,7 @@ export default function DfsDashboard() {
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
           </div>
           <div>
-            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight italic">Sunjay's <span className="text-indigo-600">Book</span></h1>
+            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight italic">Sunjay&apos;s <span className="text-indigo-600">Book</span></h1>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span>Live Sync: {new Date(lastUpdated).toLocaleTimeString()}</p>
           </div>
         </div>
@@ -261,7 +269,7 @@ export default function DfsDashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest"><th className="px-10 py-6">Athlete / Matchup</th><th className="px-4 py-6 text-center">Market Odds</th><th className="px-4 py-6 text-center">L5 Avg</th><th className="px-4 py-6 text-center">Diff</th><th className="px-4 py-6 text-center">AI Confidence</th>{PLATFORMS.map(platform => <th key={platform} className="px-4 py-6 text-center">{platform}</th>)}</tr>
+                  <tr className="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest"><th className="px-10 py-6">Athlete / Matchup</th><th className="px-4 py-6 text-center">L5 Avg</th><th className="px-4 py-6 text-center">Diff</th><th className="px-4 py-6 text-center">AI Confidence</th>{PLATFORMS.map(platform => <th key={platform} className="px-4 py-6 text-center">{platform}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {displayedProjections.map((player) => (
