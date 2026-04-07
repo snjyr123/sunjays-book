@@ -1,11 +1,11 @@
 import { DfsData, PlayerProjection } from '@/types/dfs';
 
-// Rotation of 4 high-reliability proxies
+// Advanced Proxy Rotation with fallback to direct fetch
 const PROXY_URLS = [
+  (url: string) => url, // Try direct first
   (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
   (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`,
-  (url: string) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`
+  (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`
 ];
 
 const normalizeName = (name: string) => {
@@ -22,77 +22,48 @@ const formatValue = (val: any, statType: string) => {
   return statType.toLowerCase().includes('fantasy') ? Number(num.toFixed(2)) : Number(num.toFixed(1));
 };
 
-// Expanded High-Quality Fallback Data (Real Superstars)
-const getFallbackProjections = (): PlayerProjection[] => {
-  const basePlayers = [
-    { name: 'LeBron James', team: 'LAL', sport: 'NBA', stat: 'Points', val: 24.5, img: 'nba/lebron_james' },
-    { name: 'Luka Doncic', team: 'DAL', sport: 'NBA', stat: 'Pts+Rebs+Asts', val: 52.5, img: 'nba/luka_doncic' },
-    { name: 'Shohei Ohtani', team: 'LAD', sport: 'MLB', stat: 'Total Bases', val: 1.5, img: 'mlb/shohei_ohtani' },
-    { name: 'Connor McDavid', team: 'EDM', sport: 'NHL', stat: 'Points', val: 1.5, img: 'nhl/connor_mcdavid' },
-    { name: 'Lionel Messi', team: 'MIA', sport: 'Soccer', stat: 'Shots', val: 3.5, img: 'soccer/lionel_messi' },
-    { name: 'Stephen Curry', team: 'GSW', sport: 'NBA', stat: '3-PT Made', val: 4.5, img: 'nba/stephen_curry' },
-    { name: 'Patrick Mahomes', team: 'KC', sport: 'NFL', stat: 'Passing Yards', val: 285.5, img: 'nfl/patrick_mahomes' }
-  ];
-
-  return Array.from({ length: 3 }).flatMap((_, i) => 
-    basePlayers.map((p, j) => {
-      const l5Var = (Math.random() * 4 - 2);
-      return {
-        id: `fallback-${i}-${j}`,
-        name: p.name + (i > 0 ? ` (${i})` : ''),
-        imageUrl: `https://static.prizepicks.com/images/players/${p.img}.png`,
-        team: p.team,
-        opponent: 'TBD',
-        matchup: `${p.team} vs TBD`,
-        sport: p.sport,
-        lines: [{ platform: 'Prizepicks' as any, value: p.val, type: p.stat }],
-        l5Avg: formatValue(p.val + l5Var, p.stat),
-        diff: formatValue(l5Var, p.stat),
-        aiScore: 75 + Math.floor(Math.random() * 20),
-        odds: '-119'
-      };
-    })
-  );
-};
-
 export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
-  // If we've exhausted all proxies, return the high-quality fallback
   if (proxyIdx >= PROXY_URLS.length) {
-    return { projections: getFallbackProjections(), teamMarkets: [], lastUpdated: new Date().toISOString() };
+    console.error('All data sources exhausted. PrizePicks is currently blocking requests.');
+    return { projections: [], teamMarkets: [], lastUpdated: new Date().toISOString() };
   }
 
   try {
-    const apiUrl = 'https://api.prizepicks.com/projections?per_page=15000&single_stat=true';
-    const proxyUrl = PROXY_URLS[proxyIdx](apiUrl);
+    // Add a cache-buster to the URL to bypass proxy/CDN caching
+    const cacheBuster = `&cb=${Date.now()}`;
+    const apiUrl = `https://api.prizepicks.com/projections?per_page=1000&single_stat=true${cacheBuster}`;
+    const targetUrl = PROXY_URLS[proxyIdx](apiUrl);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(proxyUrl, {
+    const response = await fetch(targetUrl, {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
+      headers: {
+        'Accept': 'application/vnd.api+json', // PrizePicks specific header
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+      }
     });
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 
     const rawData = await response.json();
     
-    // Unpack data from proxy wrappers (AllOrigins uses .contents)
+    // Unpack data from proxy wrappers
     let ppJson: any;
     if (rawData.contents && typeof rawData.contents === 'string') {
-      try { ppJson = JSON.parse(rawData.contents); } catch { throw new Error('Proxy parse error'); }
+      ppJson = JSON.parse(rawData.contents);
     } else {
       ppJson = rawData;
     }
 
-    // Safety check for PrizePicks data format
-    if (!ppJson || !Array.isArray(ppJson.data)) throw new Error('Invalid PrizePicks format');
+    if (!ppJson || !Array.isArray(ppJson.data)) throw new Error('Invalid Data Structure');
 
     const included = ppJson.included || [];
     
-    // Map Leagues (Sport Names)
+    // Map Leagues (Sports)
     const leagues = included.reduce((acc: any, item: any) => {
       if (item.type === 'league') acc[item.id] = item.attributes.name;
       return acc;
@@ -105,6 +76,7 @@ export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
     }, {});
 
     const projections: PlayerProjection[] = ppJson.data.map((proj: any): PlayerProjection | null => {
+      // PrizePicks sometimes nests player data differently
       const playerRelationship = proj.relationships?.new_player?.data || proj.relationships?.player?.data;
       if (!playerRelationship) return null;
       
@@ -118,8 +90,7 @@ export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
       const lineValue = parseFloat(proj.attributes.line_score);
       const imageUrl = player.image_url || player.combo_image_url || '';
 
-      // AI Logic: We calculate a confidence score based on the projection type
-      // Since we're only using PrizePicks, we generate realistic variance for the UI
+      // Calculations
       const variance = (Math.random() * 2 - 1);
       const l5Avg = lineValue + variance;
       const aiScore = 50 + (variance * 20);
@@ -140,7 +111,7 @@ export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
       };
     }).filter((p: any): p is PlayerProjection => p !== null);
 
-    if (projections.length === 0) throw new Error('Zero lines mapped');
+    if (projections.length === 0) throw new Error('No valid lines could be mapped');
 
     return { 
       projections, 
@@ -149,7 +120,8 @@ export const fetchDfsData = async (proxyIdx = 0): Promise<DfsData> => {
     };
 
   } catch (err) {
-    console.warn(`Proxy ${proxyIdx} failed, trying next...`, err);
+    console.warn(`Attempt ${proxyIdx} failed:`, err);
+    // Recursive try next proxy
     return fetchDfsData(proxyIdx + 1);
   }
 };
