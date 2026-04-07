@@ -132,15 +132,15 @@ export default function DfsDashboard() {
     }
     try {
       const data = await getDfsData();
-      if (!data || !Array.isArray(data.projections)) {
-        throw new Error('Invalid data format');
+      if (!data || !Array.isArray(data.projections) || data.projections.length === 0) {
+        throw new Error('No projections returned from service');
       }
       setProjections(data.projections);
       setTeamMarkets(data.teamMarkets || []);
       setLastUpdated(data.lastUpdated || new Date().toISOString());
     } catch (error) {
-      console.error('Failed to fetch DFS data:', error);
-      // Data service should handle fallbacks, but we add an extra layer here
+      console.error('Failed to fetch DFS data, dashboard using emergency fallback:', error);
+      // Extra UI level safety
       setProjections([]);
     } finally {
       setLoading(false);
