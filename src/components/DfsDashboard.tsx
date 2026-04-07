@@ -69,13 +69,7 @@ const ConfidenceCircle = memo(({ score }: { score: number }) => {
 ConfidenceCircle.displayName = 'ConfidenceCircle';
 
 const PlayerRow = memo(({ player, onClick }: { player: any, onClick: () => void }) => {
-  const statType = (player?.lines?.[0]?.type || '').toLowerCase();
-  const isFantasy = statType.includes('fantasy') || statType.includes('score');
-  const isPeriodStat = statType.includes('1q') || statType.includes('1h') || statType.includes('2h') || 
-                       statType.includes('1st') || statType.includes('2nd') || statType.includes('3rd') || 
-                       statType.includes('4th') || statType.includes('quarter') || statType.includes('half') ||
-                       statType.includes('inning');
-  
+  const isFantasy = player?.lines?.[0]?.type?.toLowerCase().includes('fantasy') || false;
   const diff = player?.diff || 0;
   
   if (!player) return null;
@@ -96,16 +90,8 @@ const PlayerRow = memo(({ player, onClick }: { player: any, onClick: () => void 
           </div>
         </div>
       </td>
-      <td className="px-4 py-6 text-center">
-        <span className="text-base font-black text-gray-900">
-          {isPeriodStat ? 'N/A' : (player.l5Avg !== null && player.l5Avg !== undefined ? player.l5Avg.toFixed(isFantasy ? 2 : 1) : '-')}
-        </span>
-      </td>
-      <td className="px-4 py-6 text-center">
-        <span className={`text-base font-black ${isPeriodStat ? 'text-gray-400' : (diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-600' : 'text-gray-400')}`}>
-          {isPeriodStat ? 'N/A' : (diff > 0 ? `+${diff.toFixed(isFantasy ? 2 : 1)}` : diff.toFixed(isFantasy ? 2 : 1))}
-        </span>
-      </td>
+      <td className="px-4 py-6 text-center"><span className="text-base font-black text-gray-900">{player.l5Avg !== null && player.l5Avg !== undefined ? player.l5Avg.toFixed(isFantasy ? 2 : 1) : '-'}</span></td>
+      <td className="px-4 py-6 text-center"><span className={`text-base font-black ${diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-600' : 'text-gray-400'}`}>{diff > 0 ? `+${diff.toFixed(isFantasy ? 2 : 1)}` : diff.toFixed(isFantasy ? 2 : 1)}</span></td>
       <td className="px-4 py-6 text-center"><ConfidenceCircle score={player.aiScore || 50} /></td>
       {PLATFORMS.map(platform => {
         const line = player.lines?.find((l: any) => l.platform === platform);

@@ -71,14 +71,8 @@ export default function PlayerStatsModal({ player, onClose }: PlayerStatsModalPr
   const currentStatType = player.lines?.[0]?.type || 'Stat';
   const currentLine = player.lines?.[0]?.value || 0;
   
-  const statTypeLower = currentStatType.toLowerCase();
-  const isPeriodStat = statTypeLower.includes('1q') || statTypeLower.includes('1h') || statTypeLower.includes('2h') || 
-                       statTypeLower.includes('1st') || statTypeLower.includes('2nd') || statTypeLower.includes('3rd') || 
-                       statTypeLower.includes('4th') || statTypeLower.includes('quarter') || statTypeLower.includes('half') ||
-                       statTypeLower.includes('inning');
-
   const avgNum = stats.length > 0 ? stats.reduce((a, b) => a + b.value, 0) / stats.length : 0;
-  const avgDisplay = isPeriodStat ? 'N/A' : formatValue(avgNum, currentStatType);
+  const avgDisplay = formatValue(avgNum, currentStatType);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -131,51 +125,43 @@ export default function PlayerStatsModal({ player, onClose }: PlayerStatsModalPr
               </div>
 
               {/* BAR GRAPH VISUALIZATION */}
-              {!isPeriodStat ? (
-                <div className="relative h-64 bg-white rounded-[40px] p-10 flex items-end justify-between gap-4 border-2 border-gray-100 shadow-inner">
-                  {/* Horizontal L5 Average Line */}
-                  <div 
-                    className="absolute left-6 right-6 border-t-4 border-dashed border-indigo-200/60 z-20 pointer-events-none transition-all duration-1000"
-                    style={{ bottom: `${(avgNum / Math.max(...stats.map(s => s.value), currentLine, 1)) * 100}%` }}
-                  >
-                    <span className="absolute -top-6 right-0 text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-white px-2">L5 Avg: {avgDisplay}</span>
-                  </div>
+              <div className="relative h-64 bg-white rounded-[40px] p-10 flex items-end justify-between gap-4 border-2 border-gray-100 shadow-inner">
+                {/* Horizontal L5 Average Line */}
+                <div 
+                  className="absolute left-6 right-6 border-t-4 border-dashed border-indigo-200/60 z-20 pointer-events-none transition-all duration-1000"
+                  style={{ bottom: `${(avgNum / Math.max(...stats.map(s => s.value), currentLine, 1)) * 100}%` }}
+                >
+                  <span className="absolute -top-6 right-0 text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-white px-2">L5 Avg: {avgDisplay}</span>
+                </div>
+                
+                {stats.map((game, i) => {
+                  const isOver = game.value > currentLine;
+                  const isPush = game.value === currentLine;
+                  const maxVal = Math.max(...stats.map(s => s.value), currentLine, 1);
+                  const h = (game.value / maxVal) * 100;
                   
-                  {stats.map((game, i) => {
-                    const isOver = game.value > currentLine;
-                    const isPush = game.value === currentLine;
-                    const maxVal = Math.max(...stats.map(s => s.value), currentLine, 1);
-                    const h = (game.value / maxVal) * 100;
-                    
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end z-10">
-                        <div className="relative w-full flex flex-col justify-end items-center h-full">
-                          <div className="absolute -top-10 bg-gray-900 text-white text-[10px] font-black px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all shadow-xl z-30 whitespace-nowrap">
-                            {game.value} vs {game.opponent}
-                          </div>
-                          <div 
-                            className={`w-full rounded-2xl transition-all duration-1000 ease-out shadow-lg
-                              ${isOver ? 'bg-emerald-500 shadow-emerald-100' : 
-                                isPush ? 'bg-gray-400' : 
-                                'bg-rose-500 shadow-rose-100'}`}
-                            style={{ height: `${Math.max(h, 8)}%`, minWidth: '35px' }}
-                          ></div>
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end z-10">
+                      <div className="relative w-full flex flex-col justify-end items-center h-full">
+                        <div className="absolute -top-10 bg-gray-900 text-white text-[10px] font-black px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all shadow-xl z-30 whitespace-nowrap">
+                          {game.value} vs {game.opponent}
                         </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black text-gray-900 uppercase tracking-tighter truncate max-w-[50px]">{game.opponent}</span>
-                          <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">{game.date}</span>
-                        </div>
+                        <div 
+                          className={`w-full rounded-2xl transition-all duration-1000 ease-out shadow-lg
+                            ${isOver ? 'bg-emerald-500 shadow-emerald-100' : 
+                              isPush ? 'bg-gray-400' : 
+                              'bg-rose-500 shadow-rose-100'}`}
+                          style={{ height: `${Math.max(h, 8)}%`, minWidth: '35px' }}
+                        ></div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="h-64 flex flex-col items-center justify-center text-center bg-white rounded-[40px] border-2 border-gray-100 shadow-inner p-10">
-                  <span className="text-4xl mb-4 grayscale">⏱️</span>
-                  <p className="text-gray-900 font-black uppercase text-xs tracking-widest">Historical Data Unavailable</p>
-                  <p className="text-gray-400 text-[10px] mt-2 font-bold uppercase tracking-widest">L5 Average is only available for full game stats</p>
-                </div>
-              )}
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-black text-gray-900 uppercase tracking-tighter truncate max-w-[50px]">{game.opponent}</span>
+                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">{game.date}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
