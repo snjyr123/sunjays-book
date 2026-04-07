@@ -111,7 +111,7 @@ export async function GET() {
       const ppController = new AbortController();
       const ppTimeout = setTimeout(() => ppController.abort(), 12000);
       const ppRes = await fetch('https://api.prizepicks.com/projections?per_page=1000&single_stat=true', {
-        headers: { 'User-Agent': USER_AGENTS[0] },
+        headers: { 'User-Agent': USER_AGENTS[0], 'Referer': 'https://app.prizepicks.com/' },
         next: { revalidate: 60 },
         signal: ppController.signal
       } as any);
@@ -234,11 +234,6 @@ export async function GET() {
       teamMarkets: [], 
       lastUpdated: new Date().toISOString() 
     });
-
-    // ADD THESE HEADERS FOR IOS
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
 
     return response;
   } catch (error: any) {

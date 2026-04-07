@@ -266,9 +266,21 @@ export default function DfsDashboard() {
                   <tr className="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest"><th className="px-10 py-6">Athlete / Matchup</th><th className="px-4 py-6 text-center">L5 Avg</th><th className="px-4 py-6 text-center">Diff</th><th className="px-4 py-6 text-center">AI Confidence</th>{PLATFORMS.map(platform => <th key={platform} className="px-4 py-6 text-center">{platform}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {displayedProjections.map((player) => (
-                    <PlayerRow key={player.id} player={player} onClick={() => setSelectedPlayer(player as any)} />
-                  ))}
+                  {displayedProjections.length > 0 ? (
+                    displayedProjections.map((player) => (
+                      <PlayerRow key={player.id} player={player} onClick={() => setSelectedPlayer(player as any)} />
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={10} className="py-32 text-center">
+                        <div className="flex flex-col items-center justify-center gap-4">
+                          <span className="text-6xl grayscale">🃏</span>
+                          <p className="text-gray-400 font-black uppercase text-xs tracking-[0.3em]">No players found matching your criteria</p>
+                          <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">Try a different sport or clear your search</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               {allFiltered.length > displayCount && (

@@ -53,12 +53,14 @@ export default function SupportChat() {
           {/* Header */}
           <div className="bg-indigo-600 p-6 text-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center font-black">AI</div>
+              <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg flex-shrink-0">
+                <img src="/support_avatar.jpg" alt="" className="w-full h-full object-cover" />
+              </div>
               <div>
-                <h3 className="font-black uppercase tracking-tight text-sm">DFS Support</h3>
+                <h3 className="font-black uppercase tracking-tight text-sm">Tech Support</h3>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                  <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Always Active</span>
+                  <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Live from Andhra Pradesh</span>
                 </div>
               </div>
             </div>
